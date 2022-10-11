@@ -3,6 +3,7 @@ kotlin = "1.7.20"
 android-gradle = "7.2.2"
 jfrog-publish = "3.0.3"
 jfrog-extractor = "4.29.1"
+filament = "1.27.1"
 
 [plugins]
 kotlin-mpp = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
@@ -12,3 +13,4 @@ publish-jfrog = { id = "com.jfrog.artifactory", version.ref = "jfrog-publish" }
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 jfrog-extractor = { module = "org.jfrog.buildinfo:build-info-extractor-gradle", version.ref = "jfrog-extractor" }
+google-filament-android = { module = "com.google.android.filament:filament-android", version.ref = "filament" }

@@ -5,8 +5,27 @@ plugins {
     alias(libs.plugins.publish.jfrog)
     `maven-publish`
 }
-// configure these variables before publishing
-val libraryVersion = "0.0.0"
+/**
+ * Tracks the [LibraryVariant.DEBUG] version number designated for all targets. Some targets,
+ * especially JS, require that each published snapshot must have an incremented version number.
+ * The version follows the [semantic versioning](https://semver.org/) scheme.
+ * @see libraryVariant
+ */
+val debugVersion = "0.0.0"
+
+/**
+ * Tracks the [LibraryVariant.OFFICIAL] version number designated for all targets. Some targets,
+ * especially JS, require that each published snapshot must have an incremented version number.
+ * The version follows the [semantic versioning](https://semver.org/) scheme.
+ * @see libraryVariant
+ */
+val officialVersion = "0.0.0"
+
+/**
+ * The build script uses this constant to configure [Artifactory](https://flyng.jfrog.io/) publishing
+ * intention for all targets.
+ * @see LibraryVariant
+ */
 val libraryVariant = LibraryVariant.DEBUG
 
 // constants
@@ -14,10 +33,34 @@ val scope = "flyng"
 val rotorPublishGroup = "rotor publishing"
 
 group = "com.$scope.${project.name}"
-version = libraryVersion
+version = when (libraryVariant) {
+    LibraryVariant.DEBUG -> debugVersion
+    LibraryVariant.OFFICIAL -> officialVersion
+}
 
+/**
+ * Enumerate artifact variants for all targets.
+ * @see LibraryVariant.DEBUG
+ * @see LibraryVariant.OFFICIAL
+ */
 enum class LibraryVariant {
-    DEBUG, OFFICIAL
+    /**
+     * Represents artifacts being under development or testing stage. All targets will
+     * have for itself a dedicated [Artifactory](https://flyng.jfrog.io/) repository
+     * to store continuously changing snapshots.
+     * @see MavenVariant.SNAPSHOT
+     * @see NpmVariant.DEVELOPMENT
+     */
+    DEBUG,
+
+    /**
+     * Represents artifacts that are ready to go to production. All targets will
+     * have for itself a dedicated [Artifactory](https://flyng.jfrog.io/) repository
+     * to store officially released snapshots.
+     * @see MavenVariant.RELEASE
+     * @see NpmVariant.PRODUCTION
+     */
+    OFFICIAL
 }
 
 buildscript {
@@ -56,13 +99,21 @@ kotlin {
         }
 
         @Suppress("UNUSED_VARIABLE")
-        val jsMain by getting
+        val jsMain by getting {
+            dependencies {
+                implementation(npm("filament", "=${libs.versions.filament.get()}"))
+            }
+        }
 
         @Suppress("UNUSED_VARIABLE")
         val jsTest by getting
 
         @Suppress("UNUSED_VARIABLE")
-        val androidMain by getting
+        val androidMain by getting {
+            dependencies {
+                implementation(libs.google.filament.android)
+            }
+        }
 
         @Suppress("UNUSED_VARIABLE")
         val androidTest by getting {
@@ -172,22 +223,47 @@ publishing {
     }
 }
 
+/**
+ * Enumerate artifact variants for Android target.
+ * @param repoKey the [Artifactory](https://flyng.jfrog.io/) repository key for this variant.
+ * @param release whether this artifact is of type [LibraryVariant.OFFICIAL].
+ * @param publication the name of the configured publication this variant will use to publish.
+ * @see MavenVariant.SNAPSHOT
+ * @see MavenVariant.RELEASE
+ */
 enum class MavenVariant(val repoKey: String, val release: Boolean, val publication: String) {
+    /**
+     * The script will automatically choose this variant for Android target when [libraryVariant]
+     * is set to [LibraryVariant.DEBUG].
+     */
     SNAPSHOT("rotor-snapshot-local", false, AndroidPublication.AarDebug.name),
+
+    /**
+     * The script will automatically choose this variant for Android target when [libraryVariant]
+     * is set to [LibraryVariant.OFFICIAL].
+     */
     RELEASE("rotor-release-local", true, AndroidPublication.AarRelease.name)
 }
 
-// configure maven publication
+// configure maven publish task
 artifactory {
-    val mavenVariant = if (libraryVariant == LibraryVariant.DEBUG) MavenVariant.SNAPSHOT else MavenVariant.RELEASE
+    val mavenVariant =
+        if (libraryVariant == LibraryVariant.DEBUG)
+            MavenVariant.SNAPSHOT
+        else
+            MavenVariant.RELEASE
+
+    // set the credentials for maven repo in ~/.gradle/gradle.properties
+    val mavenUser: String by project
+    val mavenPassword: String by project
+
     publish {
         // publish info
         repository {
             // publisher base Artifactory URL
             setContextUrl("https://flyng.jfrog.io/artifactory")
-            @Suppress("SpellCheckingInspection")
-            setUsername("ndminh")
-            setPassword("1475963Rotor#")
+            setUsername(mavenUser)
+            setPassword(mavenPassword)
             setRepoKey(mavenVariant.repoKey)
         }
         // publications
@@ -200,7 +276,6 @@ artifactory {
         buildNumber = System.currentTimeMillis().toString(16)
         isReleaseEnabled = mavenVariant.release
     }
-    // basic properties of the build info object
     with(clientConfig) {
         isIncludeEnvVars = true
         envVarsExcludePatterns = "*password*,*secret*"
@@ -208,8 +283,24 @@ artifactory {
     }
 }
 
+/**
+ * Enumerate artifact variants for JS target.
+ * @param repoKey the [Artifactory](https://flyng.jfrog.io/) repository key for this variant.
+ * @param targetDirName the JS output build directory that this variant will use to publish.
+ * @see NpmVariant.DEVELOPMENT
+ * @see NpmVariant.PRODUCTION
+ */
 enum class NpmVariant(val repoKey: String, val targetDirName: String) {
+    /**
+     * The script will automatically choose this variant for JS target when [libraryVariant]
+     * is set to [LibraryVariant.DEBUG].
+     */
     DEVELOPMENT("rotor-development-local", "developmentLibrary"),
+
+    /**
+     * The script will automatically choose this variant for JS target when [libraryVariant]
+     * is set to [LibraryVariant.OFFICIAL].
+     */
     PRODUCTION("rotor-production-local", "productionLibrary")
 }
 
