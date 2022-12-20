@@ -1,5 +1,3 @@
 # Rotor
 
-The core library upon which all Roll clients are built. Rotor heavily exploits
-the [Kotlin Multiplatform](https://kotlinlang.org/docs/multiplatform.html) concept and represents the domain layer of
-the system.
+This repo sets up a Kotlin Multiplatform library project where artifacts are published to the Jfrog Artficatory.
